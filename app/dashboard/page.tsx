@@ -1,5 +1,5 @@
 'use client'
-
+import React from "react";
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useWeather, CIUDADES_NARINO, traducirCondicion, evaluarCondicionesAbejas } from '@/hooks/use-weather'
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
 function WeatherIcon({ condicion, className = "w-16 h-16" }: { condicion: string; className?: string }) {
-  const iconMap: Record<string, JSX.Element> = {
+  const iconMap: Record<string, React.ReactNode> = {
     Clear: (
       <svg viewBox="0 0 100 100" className={className}>
         <circle cx="50" cy="50" r="25" fill="#FCD34D" />
