@@ -199,6 +199,18 @@ export async function obtenerPlantasUsuario(userId: string): Promise<PlantaUsuar
   })) as PlantaUsuario[]
 }
 
+export async function obtenerPlantaUsuario(id: string): Promise<PlantaUsuario | null> {
+  const docRef = doc(db, 'plantas_usuario', id)
+  const snapshot = await getDoc(docRef)
+  if (!snapshot.exists()) return null
+  return { id: snapshot.id, ...snapshot.data() } as PlantaUsuario
+}
+
+export async function actualizarPlantaUsuario(id: string, data: Partial<PlantaUsuario>): Promise<void> {
+  const docRef = doc(db, 'plantas_usuario', id)
+  await updateDoc(docRef, data)
+}
+
 export async function eliminarPlantaUsuario(id: string): Promise<void> {
   const docRef = doc(db, 'plantas_usuario', id)
   await deleteDoc(docRef)

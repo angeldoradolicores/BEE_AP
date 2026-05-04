@@ -25,7 +25,7 @@ import Link from 'next/link'
 
 const menuItems = [
   { icon: User, label: 'Mi perfil', href: '#' },
-  { icon: Bell, label: 'Notificaciones', href: '#' },
+  { icon: Bell, label: 'Notificaciones', href: '/dashboard/notificaciones' },
   { icon: Palette, label: 'Apariencia', href: '#' },
   { icon: Shield, label: 'Privacidad', href: '#' },
   { icon: Settings, label: 'Configuración', href: '#' },
@@ -127,13 +127,19 @@ export default function MasPage() {
         <CardContent className="p-0">
           {menuItems.map((item, index) => {
             const Icon = item.icon
-            return (
-              <button
-                key={item.label}
-                className={`w-full flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors text-left ${
-                  index !== menuItems.length - 1 ? 'border-b' : ''
-                }`}
-              >
+            const itemClasses = `w-full flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors text-left ${
+              index !== menuItems.length - 1 ? 'border-b' : ''
+            }`
+            return item.href && item.href !== '#' ? (
+              <Link key={item.label} href={item.href} className={itemClasses}>
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <span className="flex-1">{item.label}</span>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </Link>
+            ) : (
+              <button key={item.label} className={itemClasses} type="button">
                 <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                   <Icon className="h-5 w-5 text-muted-foreground" />
                 </div>

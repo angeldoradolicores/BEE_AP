@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { plantasMeliferas, getDisponibilidadPorMes, ajustarPorClima } from '@/lib/plantas-data'
 import { useWeather, CIUDADES_NARINO } from '@/hooks/use-weather'
+import { useAuth } from '@/lib/auth-context'
+import { obtenerPlantasUsuario, type PlantaUsuario } from '@/lib/firestore-service'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,12 +37,50 @@ export default function FloracionPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filtroDisponibilidad, setFiltroDisponibilidad] = useState<Disponibilidad>('todas')
   const [selectedCity] = useState(CIUDADES_NARINO[0])
+  const [userPlants, setUserPlants] = useState<PlantaUsuario[]>([])
+  const [error, setError] = useState('')
   
+  const { user } = useAuth()
   const { weather } = useWeather(selectedCity.lat, selectedCity.lon)
   const mesActual = new Date().getMonth() + 1
 
+  useEffect(() => {
+    if (user) {
+      obtenerPlantasUsuario(user.uid)
+        .then((plants) => {
+          setUserPlants(plants)
+          setError('')
+        })
+        .catch((err) => {
+          console.error('Error cargando plantas de usuario:', err)
+          setError('No se pudieron cargar las plantas personalizadas. Intenta de nuevo más tarde.')
+        })
+    }
+  }, [user])
+
   const plantasConDisponibilidad = useMemo(() => {
-    return plantasMeliferas.map(planta => {
+    const userPlantsMapped = userPlants
+      .filter(p => p.id) // Filter out plants without id
+      .map(p => ({
+        id: p.id!,
+        nombreCientifico: p.nombre_cientifico,
+        nombreComun: p.nombre_comun,
+        familia: p.familia,
+        colorFlor: p.color_flor,
+        recompensa: (p.nectar === 'alto' && p.polen === 'alto' ? 'P/N' : p.nectar === 'alto' ? 'N' : 'P') as 'N' | 'P' | 'P/N',
+        estratificacion: p.tipo.charAt(0).toUpperCase() + p.tipo.slice(1) as 'Arvense' | 'Cultivo' | 'Arbusto' | 'Árbol',
+        frecuenciaVisita: p.frecuencia_visita as 'baja' | 'media' | 'alta',
+        mesInicio: p.floracion_inicio,
+        mesFin: p.floracion_fin,
+        nectar: p.nectar.charAt(0).toUpperCase() + p.nectar.slice(1) as 'Alto' | 'Medio' | 'Bajo',
+        polen: p.polen.charAt(0).toUpperCase() + p.polen.slice(1) as 'Alto' | 'Medio' | 'Bajo',
+        descripcion: p.descripcion || '',
+        imagenUrl: p.imagen_url
+      }))
+
+    const allPlants = [...plantasMeliferas, ...userPlantsMapped]
+
+    return allPlants.map(planta => {
       const disponibilidadBase = getDisponibilidadPorMes(planta, mesActual)
       const disponibilidadAjustada = weather 
         ? ajustarPorClima(disponibilidadBase, weather.temperatura, weather.humedad, weather.condicion)
@@ -51,7 +91,7 @@ export default function FloracionPage() {
         disponibilidad: disponibilidadAjustada,
       }
     })
-  }, [mesActual, weather])
+  }, [mesActual, weather, userPlants])
 
   const plantasFiltradas = useMemo(() => {
     return plantasConDisponibilidad.filter(planta => {
@@ -120,6 +160,14 @@ export default function FloracionPage() {
         </div>
       </div>
 
+      {error && (
+        <Card>
+          <CardContent className="p-4 text-center text-sm text-destructive">
+            {error}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Plants List */}
       <div className="space-y-3">
         {plantasFiltradas.length === 0 ? (
@@ -140,12 +188,20 @@ export default function FloracionPage() {
                   <div className="flex items-center gap-4">
                     {/* Plant image placeholder */}
                     <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      <div 
-                        className="w-full h-full flex items-center justify-center"
-                        style={{ backgroundColor: getColorFromFlor(planta.colorFlor) }}
-                      >
-                        <Leaf className="h-8 w-8 text-white/80" />
-                      </div>
+                      {planta.imagenUrl ? (
+                        <img
+                          src={planta.imagenUrl}
+                          alt={planta.nombreComun}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div 
+                          className="w-full h-full flex items-center justify-center"
+                          style={{ backgroundColor: getColorFromFlor(planta.colorFlor) }}
+                        >
+                          <Leaf className="h-8 w-8 text-white/80" />
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex-1 min-w-0">

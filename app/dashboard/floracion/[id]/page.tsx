@@ -1,216 +1,308 @@
 'use client'
 
-import { use, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import { plantasMeliferas, getDisponibilidadPorMes, ajustarPorClima, mesesCortos } from '@/lib/plantas-data'
-import { useWeather, CIUDADES_NARINO } from '@/hooks/use-weather'
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { obtenerPlantaUsuario, eliminarPlantaUsuario } from '@/lib/firestore-service'
+import { plantasMeliferas } from '@/lib/plantas-data'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Leaf, Droplets, CircleDot, Calendar, Info, Lightbulb } from 'lucide-react'
+import { ArrowLeft, Loader2, Leaf, Edit, Trash2 } from 'lucide-react'
 
-const disponibilidadColors = {
-  alta: 'bg-secondary text-secondary-foreground',
-  media: 'bg-primary text-primary-foreground',
-  baja: 'bg-destructive text-destructive-foreground',
-}
-
-const disponibilidadLabels = {
-  alta: 'Alta - Disponible',
-  media: 'Media - Parcialmente disponible',
-  baja: 'Baja - No disponible',
-}
-
-export default function PlantaDetallePage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params)
+export default function FloracionDetallePage() {
+  const params = useParams()
   const router = useRouter()
-  
-  const planta = plantasMeliferas.find(p => p.id === resolvedParams.id)
-  const { weather } = useWeather(CIUDADES_NARINO[0].lat, CIUDADES_NARINO[0].lon)
-  const mesActual = new Date().getMonth() + 1
+  const { user } = useAuth()
+  const plantaId = params.id as string
 
-  const disponibilidad = useMemo(() => {
-    if (!planta) return 'baja'
-    const base = getDisponibilidadPorMes(planta, mesActual)
-    return weather 
-      ? ajustarPorClima(base, weather.temperatura, weather.humedad, weather.condicion)
-      : base
-  }, [planta, mesActual, weather])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [planta, setPlanta] = useState<any>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  if (!planta) {
+  useEffect(() => {
+    if (!plantaId) return
+
+    const fetchPlanta = async () => {
+      try {
+        setLoading(true)
+        
+        // Primero intenta buscar planta del usuario
+        const plantaData = await obtenerPlantaUsuario(plantaId)
+        
+        if (plantaData) {
+          setPlanta(plantaData)
+          setError('')
+          return
+        }
+
+        // Si no encuentra, busca en plantas predefinidas
+        const plantaPredefinida = plantasMeliferas.find(p => p.id === plantaId)
+        if (plantaPredefinida) {
+          setPlanta(plantaPredefinida)
+          setError('')
+          return
+        }
+
+        setError('Planta no encontrada')
+      } catch (err) {
+        console.error('Error cargando planta:', err)
+        // Intenta buscar en predefinidas si hay error
+        const plantaPredefinida = plantasMeliferas.find(p => p.id === plantaId)
+        if (plantaPredefinida) {
+          setPlanta(plantaPredefinida)
+          setError('')
+        } else {
+          setError('Error al cargar la planta')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPlanta()
+  }, [plantaId])
+
+  const handleDelete = async () => {
+    if (!confirm('¿Está seguro de que desea eliminar esta planta?')) return
+
+    try {
+      setIsDeleting(true)
+      await eliminarPlantaUsuario(plantaId)
+      router.push('/dashboard/floracion')
+    } catch (err) {
+      console.error('Error eliminando planta:', err)
+      setError('Error al eliminar la planta')
+      setIsDeleting(false)
+    }
+  }
+
+  if (loading) {
     return (
-      <div className="p-4">
-        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
-        </Button>
+      <div className="p-4 flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  if (error || !planta) {
+    return (
+      <div className="p-4 space-y-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-xl font-bold">Detalle de Floración</h1>
+        </div>
         <Card>
           <CardContent className="p-8 text-center">
-            <Leaf className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-            <p className="text-muted-foreground">Planta no encontrada</p>
+            <p className="text-destructive mb-4">{error || 'Planta no encontrada'}</p>
+            <Button onClick={() => router.push('/dashboard/floracion')}>
+              Volver a Floración
+            </Button>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  const recomendacion = getRecomendacion(disponibilidad, planta)
+  const mesInicio = planta.floracion_inicio || planta.mesInicio
+  const mesFin = planta.floracion_fin || planta.mesFin
+  const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+  const isUserPlant = planta.userId === user?.uid
 
   return (
-    <div className="pb-4">
-      {/* Header with image */}
-      <div className="relative">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => router.back()}
-          className="absolute top-4 left-4 z-10 bg-background/80 backdrop-blur"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        
-        <div 
-          className="h-48 flex items-center justify-center"
-          style={{ backgroundColor: getColorFromFlor(planta.colorFlor) }}
-        >
-          <Leaf className="h-24 w-24 text-white/60" />
+    <div className="p-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl font-bold">{planta.nombre_comun || planta.nombreComun}</h1>
         </div>
-        
-        <Badge className="absolute top-4 right-4 bg-card text-card-foreground">
-          {planta.estratificacion}
-        </Badge>
+        {isUserPlant && (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/dashboard/plantas/editar/${plantaId}`)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Editar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Eliminar
+            </Button>
+          </div>
+        )}
       </div>
 
-      <div className="p-4 space-y-4 -mt-4 relative">
-        {/* Main Info Card */}
-        <Card>
-          <CardContent className="p-4">
-            <h1 className="text-2xl font-bold">{planta.nombreComun}</h1>
-            <p className="text-muted-foreground italic">{planta.nombreCientifico}</p>
-            <p className="text-sm text-muted-foreground mt-1">Familia: {planta.familia}</p>
-          </CardContent>
-        </Card>
+      {/* Main content */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Image */}
+        <div className="md:col-span-1">
+          <Card>
+            <CardContent className="p-4">
+              {planta.imagen_url || planta.imagenUrl ? (
+                <img
+                  src={planta.imagen_url || planta.imagenUrl}
+                  alt={planta.nombre_comun || planta.nombreComun}
+                  className="w-full h-64 object-cover rounded-lg"
+                />
+              ) : (
+                <div
+                  className="w-full h-64 rounded-lg flex items-center justify-center"
+                  style={{
+                    backgroundColor: getColorFromFlor(planta.color_flor || planta.colorFlor || 'Verde'),
+                  }}
+                >
+                  <Leaf className="h-16 w-16 text-white/80" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Flowering Period */}
+        {/* Info */}
+        <div className="md:col-span-2 space-y-4">
+          {/* Nombres */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Información Básica</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-sm text-muted-foreground">Nombre científico</p>
+                <p className="font-semibold italic">{planta.nombre_cientifico || planta.nombreCientifico}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Familia</p>
+                <p className="font-semibold">{planta.familia}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Tipo</p>
+                <p className="font-semibold capitalize">{planta.tipo || planta.estratificacion}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Color de flor</p>
+                <p className="font-semibold">{planta.color_flor || planta.colorFlor}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Aporte apícola */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Aporte Apícola</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Néctar</p>
+                  <Badge variant="secondary" className="w-full justify-center">
+                    {planta.nectar}
+                  </Badge>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Polen</p>
+                  <Badge variant="secondary" className="w-full justify-center">
+                    {planta.polen}
+                  </Badge>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Visitas</p>
+                  <Badge variant="secondary" className="w-full justify-center capitalize">
+                    {planta.frecuencia_visita || planta.frecuenciaVisita}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Floración */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Período de Floración</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-1">Inicio</p>
+              <Badge variant="outline" className="text-base px-3 py-2">
+                {meses[mesInicio - 1]}
+              </Badge>
+            </div>
+            <div className="flex-1 h-1 mx-4 bg-gradient-to-r from-secondary to-primary rounded-full" />
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-1">Fin</p>
+              <Badge variant="outline" className="text-base px-3 py-2">
+                {meses[mesFin - 1]}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Mes por mes */}
+          <div className="grid grid-cols-12 gap-1">
+            {meses.map((mes, index) => {
+              let isInRange = false
+              if (mesInicio <= mesFin) {
+                isInRange = index + 1 >= mesInicio && index + 1 <= mesFin
+              } else {
+                isInRange = index + 1 >= mesInicio || index + 1 <= mesFin
+              }
+              
+              return (
+                <div
+                  key={mes}
+                  className={`p-2 text-center text-xs font-semibold rounded ${
+                    isInRange
+                      ? 'bg-secondary text-secondary-foreground'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {mes}
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Descripción */}
+      {planta.descripcion && (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Floración
-            </CardTitle>
+          <CardHeader>
+            <CardTitle>Descripción</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-medium">
-              {mesesCortos[planta.mesInicio - 1]} - {mesesCortos[planta.mesFin - 1]}
+            <p className="text-muted-foreground leading-relaxed">
+              {planta.descripcion}
             </p>
-            
-            {/* Month indicator */}
-            <div className="flex gap-1 mt-3">
-              {mesesCortos.map((mes, i) => {
-                const enRango = isInRange(i + 1, planta.mesInicio, planta.mesFin)
-                const esActual = i + 1 === mesActual
-                return (
-                  <div
-                    key={mes}
-                    className={`flex-1 h-2 rounded-full transition-colors ${
-                      enRango 
-                        ? 'bg-secondary' 
-                        : 'bg-muted'
-                    } ${esActual ? 'ring-2 ring-foreground ring-offset-1' : ''}`}
-                    title={mes}
-                  />
-                )
-              })}
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground mt-1">
-              <span>Ene</span>
-              <span>Dic</span>
-            </div>
           </CardContent>
         </Card>
-
-        {/* Contribution */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Info className="h-4 w-4" />
-              Aporte
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                  <Droplets className="h-5 w-5 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Néctar</p>
-                  <p className="font-medium">{planta.nectar}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                  <CircleDot className="h-5 w-5 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Polen</p>
-                  <p className="font-medium">{planta.polen}</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Current Availability */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Disponibilidad actual</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge className={`${disponibilidadColors[disponibilidad]} text-sm py-1 px-3`}>
-              {disponibilidadLabels[disponibilidad]}
-            </Badge>
-          </CardContent>
-        </Card>
-
-        {/* Recommendation */}
-        <Card className="bg-secondary/10 border-secondary/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-secondary" />
-              Recomendación
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">{recomendacion}</p>
-          </CardContent>
-        </Card>
-
-        {/* Description */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Descripción</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">{planta.descripcion}</p>
-          </CardContent>
-        </Card>
-      </div>
+      )}
     </div>
   )
 }
 
-function isInRange(mes: number, inicio: number, fin: number): boolean {
-  if (inicio <= fin) {
-    return mes >= inicio && mes <= fin
-  }
-  return mes >= inicio || mes <= fin
-}
-
 function getColorFromFlor(color: string): string {
   const colorMap: Record<string, string> = {
-    'Blanca': '#E5E7EB',
-    'Blanco': '#E5E7EB',
+    'Blanca': '#f5f5f5',
+    'Blanco': '#f5f5f5',
     'Amarillo': '#FCD34D',
     'Amarilla': '#FCD34D',
     'Rosado': '#F472B6',
@@ -220,16 +312,4 @@ function getColorFromFlor(color: string): string {
     'Azul': '#3B82F6',
   }
   return colorMap[color] || '#9CA3AF'
-}
-
-function getRecomendacion(disponibilidad: 'alta' | 'media' | 'baja', planta: { nectar: string; polen: string }): string {
-  if (disponibilidad === 'alta') {
-    return `Las condiciones actuales son favorables para la recolección de ${
-      planta.nectar === 'Alto' ? 'néctar' : planta.polen === 'Alto' ? 'polen' : 'recursos'
-    }. Excelente momento para aprovechar esta planta.`
-  } else if (disponibilidad === 'media') {
-    return 'Las condiciones son moderadas. Las abejas pueden visitar esta planta, pero la producción puede no ser óptima.'
-  } else {
-    return 'No es el mejor momento para esta planta. Considera otras fuentes de floración disponibles en la zona.'
-  }
 }

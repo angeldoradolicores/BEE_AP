@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { crearApiario } from '@/lib/firestore-service'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { CIUDADES_NARINO } from '@/hooks/use-weather'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -37,12 +38,13 @@ export default function NuevoApiarioPage() {
     setError('')
 
     try {
-      await crearApiario({
+      await addDoc(collection(db, 'apiarios'), {
         nombre: nombre.trim(),
         ubicacion: usarCiudad ? selectedCity.nombre : ubicacionCustom.trim(),
         latitud: usarCiudad ? selectedCity.lat : 0,
         longitud: usarCiudad ? selectedCity.lon : 0,
-        userId: user.uid
+        userId: user.uid,
+        fecha_creacion: serverTimestamp()
       })
       
       router.push('/dashboard/apiarios')

@@ -1,22 +1,61 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { plantasMeliferas, mesesCortos } from '@/lib/plantas-data'
+import { useAuth } from '@/lib/auth-context'
+import { obtenerPlantasUsuario, type PlantaUsuario } from '@/lib/firestore-service'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function CalendarioPage() {
   const [year, setYear] = useState(new Date().getFullYear())
+  const [userPlants, setUserPlants] = useState<PlantaUsuario[]>([])
+  
+  const { user } = useAuth()
   const mesActual = new Date().getMonth() + 1
+
+  useEffect(() => {
+    if (user) {
+      obtenerPlantasUsuario(user.uid).then(setUserPlants)
+    }
+  }, [user])
 
   // Group plants by their flowering pattern
   const plantasOrdenadas = useMemo(() => {
-    return [...plantasMeliferas].sort((a, b) => {
+    const userPlantsMapped = userPlants
+      .filter(p => p.id) // Filter out plants without id
+      .map(p => ({
+        id: p.id!,
+        nombreCientifico: p.nombre_cientifico,
+        nombreComun: p.nombre_comun,
+        familia: p.familia,
+        colorFlor: p.color_flor,
+        recompensa: (p.nectar === 'alto' && p.polen === 'alto' ? 'P/N' : p.nectar === 'alto' ? 'N' : 'P') as 'N' | 'P' | 'P/N',
+        estratificacion: p.tipo.charAt(0).toUpperCase() + p.tipo.slice(1) as 'Arvense' | 'Cultivo' | 'Arbusto' | 'Árbol',
+        frecuenciaVisita: p.frecuencia_visita as 'baja' | 'media' | 'alta',
+        mesInicio: p.floracion_inicio,
+        mesFin: p.floracion_fin,
+        nectar: p.nectar.charAt(0).toUpperCase() + p.nectar.slice(1) as 'Alto' | 'Medio' | 'Bajo',
+        polen: p.polen.charAt(0).toUpperCase() + p.polen.slice(1) as 'Alto' | 'Medio' | 'Bajo',
+        descripcion: p.descripcion || '',
+        imagenUrl: p.imagen_url
+      }))
+
+    const allPlants = [...plantasMeliferas, ...userPlantsMapped]
+
+    return allPlants.sort((a, b) => {
       // Sort by start month
       return a.mesInicio - b.mesInicio
     })
-  }, [])
+  }, [userPlants])
+
+  const countByStatus = (status: 'alta' | 'media' | 'baja', mesActual: number): number => {
+    return plantasOrdenadas.filter(planta => {
+      const plantaStatus = getMonthStatus(mesActual, planta.mesInicio, planta.mesFin)
+      return plantaStatus === status
+    }).length
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -93,6 +132,8 @@ export default function CalendarioPage() {
                 {Array.from({ length: 12 }, (_, i) => {
                   const mes = i + 1
                   const status = getMonthStatus(mes, planta.mesInicio, planta.mesFin)
+                  const distance = status === 'baja' ? getDistanceToFlowering(mes, planta.mesInicio, planta.mesFin) : 0
+                  const opacity = status === 'baja' ? Math.max(0.3, 1 - (distance - 1) * 0.2) : 1
                   return (
                     <div
                       key={i}
@@ -102,9 +143,10 @@ export default function CalendarioPage() {
                           : status === 'media'
                           ? 'bg-secondary/50'
                           : status === 'baja'
-                          ? 'bg-destructive/30'
+                          ? ''
                           : 'bg-muted/30'
                       } ${mes === mesActual ? 'ring-1 ring-foreground' : ''}`}
+                      style={status === 'baja' ? { backgroundColor: `rgba(239, 68, 68, ${opacity})` } : {}}
                     />
                   )
                 })}
@@ -148,7 +190,7 @@ export default function CalendarioPage() {
   )
 }
 
-function getMonthStatus(mes: number, inicio: number, fin: number): 'alta' | 'media' | 'baja' | 'none' {
+function getMonthStatus(mes: number, inicio: number, fin: number): 'alta' | 'media' | 'baja' {
   // Check if in range
   let enRango = false
   if (inicio <= fin) {
@@ -175,15 +217,17 @@ function getMonthStatus(mes: number, inicio: number, fin: number): 'alta' | 'med
     return 'media'
   }
   
-  return 'none'
+  return 'baja'
 }
 
-function countByStatus(status: 'alta' | 'media' | 'baja', mesActual: number): number {
-  return plantasMeliferas.filter(planta => {
-    const plantaStatus = getMonthStatus(mesActual, planta.mesInicio, planta.mesFin)
-    if (status === 'baja') {
-      return plantaStatus === 'none' || plantaStatus === 'baja'
-    }
-    return plantaStatus === status
-  }).length
+function getDistanceToFlowering(mes: number, inicio: number, fin: number): number {
+  const distanciaInicio = Math.min(
+    Math.abs(mes - inicio),
+    12 - Math.abs(mes - inicio)
+  )
+  const distanciaFin = Math.min(
+    Math.abs(mes - fin),
+    12 - Math.abs(mes - fin)
+  )
+  return Math.min(distanciaInicio, distanciaFin)
 }

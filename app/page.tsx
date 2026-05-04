@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
@@ -22,11 +22,13 @@ export default function LoginPage() {
   const { signIn, signUp, user, loading: authLoading } = useAuth()
   const router = useRouter()
 
-  // Redirect if already logged in
-  if (!authLoading && user) {
-    router.push('/dashboard')
-    return null
-  }
+  const shouldRedirect = !authLoading && !!user
+
+  useEffect(() => {
+    if (shouldRedirect) {
+      router.push('/dashboard')
+    }
+  }, [shouldRedirect, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,7 +57,7 @@ export default function LoginPage() {
     }
   }
 
-  if (authLoading) {
+  if (authLoading || shouldRedirect) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

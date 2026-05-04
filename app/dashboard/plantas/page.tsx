@@ -19,6 +19,8 @@ interface PlantaUsuario {
   floracionFin: number
   nectar: string
   polen: string
+  frecuenciaVisita: string
+  imagenUrl?: string
 }
 
 export default function MisPlantasPage() {
@@ -26,6 +28,7 @@ export default function MisPlantasPage() {
   const router = useRouter()
   const [plantas, setPlantas] = useState<PlantaUsuario[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
 
   useEffect(() => {
@@ -43,13 +46,27 @@ export default function MisPlantasPage() {
           where('userId', '==', user.uid)
         )
         const snapshot = await getDocs(q)
-        const plantasData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as PlantaUsuario[]
+        const plantasData = snapshot.docs.map(doc => {
+          const data = doc.data() as any
+          return {
+            id: doc.id,
+            nombre: data.nombre_comun ?? data.nombre ?? '',
+            nombreCientifico: data.nombre_cientifico ?? data.nombreCientifico ?? '',
+            tipo: data.tipo ?? '',
+            floracionInicio: data.floracion_inicio ?? data.floracionInicio ?? 0,
+            floracionFin: data.floracion_fin ?? data.floracionFin ?? 0,
+            nectar: data.nectar ?? '',
+            polen: data.polen ?? '',
+            frecuenciaVisita: data.frecuencia_visita ?? data.frecuenciaVisita ?? '',
+            imagenUrl: data.imagen_url ?? data.imagenUrl ?? '',
+            descripcion: data.descripcion ?? '',
+          }
+        }) as PlantaUsuario[]
         setPlantas(plantasData)
+        setError('')
       } catch (error) {
         console.error('Error fetching plantas:', error)
+        setError('Error al cargar plantas. Intenta nuevamente más tarde.')
       } finally {
         setLoading(false)
       }
@@ -98,6 +115,14 @@ export default function MisPlantasPage() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : error ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Flower2 className="h-12 w-12 mx-auto mb-4 text-destructive" />
+            <h3 className="font-semibold mb-2">Error</h3>
+            <p className="text-sm text-destructive mb-4">{error}</p>
+          </CardContent>
+        </Card>
       ) : plantas.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
@@ -121,6 +146,15 @@ export default function MisPlantasPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
+                    {planta.imagenUrl ? (
+                      <div className="mb-3 overflow-hidden rounded-lg">
+                        <img
+                          src={planta.imagenUrl}
+                          alt={planta.nombre}
+                          className="w-full h-40 object-cover"
+                        />
+                      </div>
+                    ) : null}
                     <h3 className="font-semibold">{planta.nombre}</h3>
                     <p className="text-sm text-muted-foreground italic">{planta.nombreCientifico}</p>
                     <div className="flex gap-4 mt-2 text-xs">

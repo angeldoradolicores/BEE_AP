@@ -23,6 +23,7 @@ export default function ApiariosPage() {
   const [apiarios, setApiarios] = useState<Apiario[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (userData?.rol !== 'apicultor') {
@@ -41,8 +42,10 @@ export default function ApiariosPage() {
     try {
       const data = await obtenerApiarios(user.uid)
       setApiarios(data)
+      setError('')
     } catch (error) {
       console.error('Error cargando apiarios:', error)
+      setError('Error al cargar apiarios. Intenta nuevamente más tarde.')
     } finally {
       setLoading(false)
     }
@@ -90,6 +93,16 @@ export default function ApiariosPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
+
+        {error && !loading && (
+          <Card className="border-destructive/20">
+            <CardContent className="p-8 text-center">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+              <h3 className="font-semibold mb-2">Error</h3>
+              <p className="text-sm text-destructive mb-4">{error}</p>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Empty state */}
       {!loading && apiarios.length === 0 && (

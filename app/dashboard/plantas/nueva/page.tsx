@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { uploadPlantImage } from '@/lib/storage-service'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,7 +33,7 @@ const tipos = ['Árbol', 'Arbusto', 'Hierba', 'Cultivo', 'Arvense']
 const niveles = ['Alto', 'Medio', 'Bajo']
 
 export default function NuevaPlantaPage() {
-  const { userData, user } = useAuth()
+  const { userData, user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -50,6 +51,21 @@ export default function NuevaPlantaPage() {
     frecuenciaVisita: '',
     descripcion: '',
   })
+  const [imagenFile, setImagenFile] = useState<File | null>(null)
+
+  useEffect(() => {
+    if (!authLoading && userData?.rol !== 'apicultor') {
+      router.push('/dashboard')
+    }
+  }, [authLoading, userData, router])
+
+  if (authLoading) {
+    return (
+      <div className="p-4 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -58,6 +74,13 @@ export default function NuevaPlantaPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    // Validar campos requeridos
+    if (!formData.nombre || !formData.tipo || !formData.floracionInicio || !formData.floracionFin || !formData.nectar || !formData.polen) {
+      setError('Por favor completa todos los campos requeridos')
+      return
+    }
+
     setLoading(true)
 
     if (!user || userData?.rol !== 'apicultor') {
@@ -67,26 +90,43 @@ export default function NuevaPlantaPage() {
     }
 
     try {
+      console.log('Iniciando guardado de planta...')
+      let uploadedImageUrl = ''
+      if (imagenFile) {
+        console.log('Subiendo imagen:', imagenFile.name)
+        uploadedImageUrl = await uploadPlantImage(user.uid, imagenFile) || ''
+        if (uploadedImageUrl) {
+          console.log('Imagen subida:', uploadedImageUrl)
+        } else {
+          console.log('No se pudo subir la imagen, continuando sin ella')
+        }
+      }
+      console.log('Guardando planta en Firestore con datos:', formData)
       await addDoc(collection(db, 'plantas_usuario'), {
-        ...formData,
-        floracionInicio: parseInt(formData.floracionInicio),
-        floracionFin: parseInt(formData.floracionFin),
+        nombre_comun: formData.nombre,
+        nombre_cientifico: formData.nombreCientifico,
+        familia: formData.familia,
+        tipo: formData.tipo.toLowerCase(),
+        color_flor: formData.colorFlor,
+        floracion_inicio: parseInt(formData.floracionInicio),
+        floracion_fin: parseInt(formData.floracionFin),
+        nectar: formData.nectar.toLowerCase(),
+        polen: formData.polen.toLowerCase(),
+        frecuencia_visita: formData.frecuenciaVisita.toLowerCase(),
+        imagen_url: uploadedImageUrl || null,
+        descripcion: formData.descripcion,
         userId: user.uid,
-        createdAt: serverTimestamp(),
+        fecha_creacion: serverTimestamp(),
       })
-      
+      console.log('Planta guardada exitosamente')
       router.push('/dashboard/plantas')
     } catch (err) {
-      setError('Error al guardar la planta. Intenta de nuevo.')
-      console.error(err)
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.error('Error al guardar planta:', errorMessage)
+      setError(`Error al guardar la planta: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
-  }
-
-  if (userData?.rol !== 'apicultor') {
-    router.push('/dashboard')
-    return null
   }
 
   return (
@@ -105,6 +145,15 @@ export default function NuevaPlantaPage() {
             <CardTitle className="text-base">Información básica</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="imagenFile">Imagen de la planta</Label>
+              <Input
+                id="imagenFile"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImagenFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="nombre">Nombre común *</Label>
               <Input
