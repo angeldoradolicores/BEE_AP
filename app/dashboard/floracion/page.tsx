@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { plantasMeliferas, getDisponibilidadPorMes, ajustarPorClima } from '@/lib/plantas-data'
 import { useWeather, CIUDADES_NARINO } from '@/hooks/use-weather'
 import { useAuth } from '@/lib/auth-context'
-import { obtenerPlantasUsuario, type PlantaUsuario } from '@/lib/firestore-service'
+import { obtenerTodasLasPlantas, type PlantaUsuario } from '@/lib/firestore-service'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,14 +46,14 @@ export default function FloracionPage() {
 
   useEffect(() => {
     if (user) {
-      obtenerPlantasUsuario(user.uid)
+      obtenerTodasLasPlantas()
         .then((plants) => {
           setUserPlants(plants)
           setError('')
         })
         .catch((err) => {
-          console.error('Error cargando plantas de usuario:', err)
-          setError('No se pudieron cargar las plantas personalizadas. Intenta de nuevo más tarde.')
+          console.error('Error cargando plantas:', err)
+          setError('No se pudieron cargar las plantas. Intenta de nuevo más tarde.')
         })
     }
   }, [user])

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { plantasMeliferas, mesesCortos } from '@/lib/plantas-data'
 import { useAuth } from '@/lib/auth-context'
-import { obtenerPlantasUsuario, type PlantaUsuario } from '@/lib/firestore-service'
+import { obtenerTodasLasPlantas, type PlantaUsuario } from '@/lib/firestore-service'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -17,7 +17,7 @@ export default function CalendarioPage() {
 
   useEffect(() => {
     if (user) {
-      obtenerPlantasUsuario(user.uid).then(setUserPlants)
+      obtenerTodasLasPlantas().then(setUserPlants)
     }
   }, [user])
 

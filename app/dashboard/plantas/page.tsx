@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { obtenerTodasLasPlantas, eliminarPlantaUsuario } from '@/lib/firestore-service'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Plus, Trash2, Edit, Flower2, Loader2 } from 'lucide-react'
@@ -41,28 +40,21 @@ export default function MisPlantasPage() {
       if (!user) return
       
       try {
-        const q = query(
-          collection(db, 'plantas_usuario'),
-          where('userId', '==', user.uid)
-        )
-        const snapshot = await getDocs(q)
-        const plantasData = snapshot.docs.map(doc => {
-          const data = doc.data() as any
-          return {
-            id: doc.id,
-            nombre: data.nombre_comun ?? data.nombre ?? '',
-            nombreCientifico: data.nombre_cientifico ?? data.nombreCientifico ?? '',
-            tipo: data.tipo ?? '',
-            floracionInicio: data.floracion_inicio ?? data.floracionInicio ?? 0,
-            floracionFin: data.floracion_fin ?? data.floracionFin ?? 0,
-            nectar: data.nectar ?? '',
-            polen: data.polen ?? '',
-            frecuenciaVisita: data.frecuencia_visita ?? data.frecuenciaVisita ?? '',
-            imagenUrl: data.imagen_url ?? data.imagenUrl ?? '',
-            descripcion: data.descripcion ?? '',
-          }
-        }) as PlantaUsuario[]
-        setPlantas(plantasData)
+        const plantasData = await obtenerTodasLasPlantas()
+        const mappedPlantas = plantasData.map(planta => ({
+          id: planta.id!,
+          nombre: planta.nombre_comun,
+          nombreCientifico: planta.nombre_cientifico,
+          tipo: planta.tipo,
+          floracionInicio: planta.floracion_inicio,
+          floracionFin: planta.floracion_fin,
+          nectar: planta.nectar,
+          polen: planta.polen,
+          frecuenciaVisita: planta.frecuencia_visita,
+          imagenUrl: planta.imagen_url,
+          descripcion: planta.descripcion,
+        })) as PlantaUsuario[]
+        setPlantas(mappedPlantas)
         setError('')
       } catch (error) {
         console.error('Error fetching plantas:', error)
@@ -80,7 +72,7 @@ export default function MisPlantasPage() {
     
     setDeleting(plantaId)
     try {
-      await deleteDoc(doc(db, 'plantas_usuario', plantaId))
+      await eliminarPlantaUsuario(plantaId)
       setPlantas(plantas.filter(p => p.id !== plantaId))
     } catch (error) {
       console.error('Error deleting planta:', error)

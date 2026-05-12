@@ -89,6 +89,18 @@ export async function obtenerApiarios(userId: string): Promise<Apiario[]> {
   })) as Apiario[]
 }
 
+export async function obtenerTodosLosApiarios(): Promise<Apiario[]> {
+  const q = query(
+    collection(db, 'apiarios'),
+    orderBy('fecha_creacion', 'desc')
+  )
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as Apiario[]
+}
+
 export async function obtenerApiario(id: string): Promise<Apiario | null> {
   const docRef = doc(db, 'apiarios', id)
   const snapshot = await getDoc(docRef)
@@ -139,6 +151,18 @@ export async function obtenerColmenas(userId: string, apiarioId?: string): Promi
   })) as Colmena[]
 }
 
+export async function obtenerTodasLasColmenas(): Promise<Colmena[]> {
+  const q = query(
+    collection(db, 'colmenas'),
+    orderBy('fecha_instalacion', 'desc')
+  )
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as Colmena[]
+}
+
 export async function actualizarColmena(id: string, data: Partial<Colmena>): Promise<void> {
   const docRef = doc(db, 'colmenas', id)
   await updateDoc(docRef, data)
@@ -171,6 +195,20 @@ export async function obtenerActividades(userId: string, limit?: number): Promis
   return limit ? actividades.slice(0, limit) : actividades
 }
 
+export async function obtenerTodasLasActividades(): Promise<Actividad[]> {
+  const q = query(
+    collection(db, 'actividades'),
+    orderBy('fecha', 'desc')
+  )
+  const snapshot = await getDocs(q)
+  const actividades = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as Actividad[]
+  
+  return actividades
+}
+
 export async function eliminarActividad(id: string): Promise<void> {
   const docRef = doc(db, 'actividades', id)
   await deleteDoc(docRef)
@@ -190,6 +228,18 @@ export async function obtenerPlantasUsuario(userId: string): Promise<PlantaUsuar
   const q = query(
     collection(db, 'plantas_usuario'),
     where('userId', '==', userId),
+    orderBy('fecha_creacion', 'desc')
+  )
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as PlantaUsuario[]
+}
+
+export async function obtenerTodasLasPlantas(): Promise<PlantaUsuario[]> {
+  const q = query(
+    collection(db, 'plantas_usuario'),
     orderBy('fecha_creacion', 'desc')
   )
   const snapshot = await getDocs(q)
@@ -229,6 +279,27 @@ export async function obtenerEstadisticas(userId: string): Promise<{
     obtenerColmenas(userId),
     obtenerActividades(userId),
     obtenerPlantasUsuario(userId)
+  ])
+
+  return {
+    totalApiarios: apiarios.length,
+    totalColmenas: colmenas.length,
+    totalActividades: actividades.length,
+    totalPlantas: plantas.length
+  }
+}
+
+export async function obtenerEstadisticasGlobales(): Promise<{
+  totalApiarios: number
+  totalColmenas: number
+  totalActividades: number
+  totalPlantas: number
+}> {
+  const [apiarios, colmenas, actividades, plantas] = await Promise.all([
+    obtenerTodosLosApiarios(),
+    obtenerTodasLasColmenas(),
+    obtenerTodasLasActividades(),
+    obtenerTodasLasPlantas()
   ])
 
   return {

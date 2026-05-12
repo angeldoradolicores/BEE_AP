@@ -3,7 +3,7 @@ import React from "react";
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useWeather, CIUDADES_NARINO, traducirCondicion, evaluarCondicionesAbejas } from '@/hooks/use-weather'
-import { obtenerEstadisticas } from '@/lib/firestore-service'
+import { obtenerEstadisticasGlobales } from '@/lib/firestore-service'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Bell, Cloud, Droplets, Wind, RefreshCw, ChevronRight } from 'lucide-react'
@@ -149,7 +149,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user && userData?.rol === 'apicultor') {
-      obtenerEstadisticas(user.uid).then(setStats).catch(console.error)
+      obtenerEstadisticasGlobales().then(setStats).catch(console.error)
     }
   }, [user, userData])
 

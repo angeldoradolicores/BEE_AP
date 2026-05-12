@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { obtenerApiarios, eliminarApiario, Apiario } from '@/lib/firestore-service'
+import { obtenerTodosLosApiarios, eliminarApiario, Apiario } from '@/lib/firestore-service'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { 
@@ -40,7 +40,7 @@ export default function ApiariosPage() {
     if (!user) return
     setLoading(true)
     try {
-      const data = await obtenerApiarios(user.uid)
+      const data = await obtenerTodosLosApiarios()
       setApiarios(data)
       setError('')
     } catch (error) {
