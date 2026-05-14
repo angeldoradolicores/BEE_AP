@@ -44,8 +44,7 @@ export default function NuevaPlantaPage() {
     familia: '',
     tipo: '',
     colorFlor: '',
-    floracionInicio: '',
-    floracionFin: '',
+    floracionPorMes: Array(12).fill('Bajo'),
     nectar: '',
     polen: '',
     frecuenciaVisita: '',
@@ -71,12 +70,20 @@ export default function NuevaPlantaPage() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleFloracionMesChange = (index: number, value: string) => {
+    setFormData(prev => {
+      const floracionPorMes = [...prev.floracionPorMes]
+      floracionPorMes[index] = value
+      return { ...prev, floracionPorMes }
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
     // Validar campos requeridos
-    if (!formData.nombre || !formData.tipo || !formData.floracionInicio || !formData.floracionFin || !formData.nectar || !formData.polen) {
+    if (!formData.nombre || !formData.tipo || !formData.nectar || !formData.polen) {
       setError('Por favor completa todos los campos requeridos')
       return
     }
@@ -108,8 +115,7 @@ export default function NuevaPlantaPage() {
         familia: formData.familia,
         tipo: formData.tipo.toLowerCase(),
         color_flor: formData.colorFlor,
-        floracion_inicio: parseInt(formData.floracionInicio),
-        floracion_fin: parseInt(formData.floracionFin),
+        floracion_por_mes: formData.floracionPorMes.map((nivel) => nivel.toLowerCase()),
         nectar: formData.nectar.toLowerCase(),
         polen: formData.polen.toLowerCase(),
         frecuencia_visita: formData.frecuenciaVisita.toLowerCase(),
@@ -214,36 +220,32 @@ export default function NuevaPlantaPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Período de floración</CardTitle>
+            <CardTitle className="text-base">Floración por mes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Mes inicio *</Label>
-                <Select value={formData.floracionInicio} onValueChange={(v) => handleChange('floracionInicio', v)} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Mes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {meses.map(mes => (
-                      <SelectItem key={mes.value} value={mes.value}>{mes.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Mes fin *</Label>
-                <Select value={formData.floracionFin} onValueChange={(v) => handleChange('floracionFin', v)} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Mes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {meses.map(mes => (
-                      <SelectItem key={mes.value} value={mes.value}>{mes.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <p className="text-sm text-muted-foreground">
+              Selecciona el nivel de floración para cada mes.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {meses.map((mes, index) => (
+                <div key={mes.value} className="space-y-2">
+                  <Label>{mes.label}</Label>
+                  <Select
+                    value={formData.floracionPorMes[index]}
+                    onValueChange={(v) => handleFloracionMesChange(index, v)}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Nivel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {niveles.map((nivel) => (
+                        <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

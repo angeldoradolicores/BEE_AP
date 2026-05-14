@@ -14,8 +14,9 @@ interface PlantaUsuario {
   nombre: string
   nombreCientifico: string
   tipo: string
-  floracionInicio: number
-  floracionFin: number
+  floracionInicio?: number
+  floracionFin?: number
+  floracionPorMes?: string[]
   nectar: string
   polen: string
   frecuenciaVisita: string
@@ -48,6 +49,7 @@ export default function MisPlantasPage() {
           tipo: planta.tipo,
           floracionInicio: planta.floracion_inicio,
           floracionFin: planta.floracion_fin,
+          floracionPorMes: planta.floracion_por_mes ?? buildFloracionPorMes(planta.floracion_inicio, planta.floracion_fin),
           nectar: planta.nectar,
           polen: planta.polen,
           frecuenciaVisita: planta.frecuencia_visita,
@@ -82,6 +84,26 @@ export default function MisPlantasPage() {
   }
 
   const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
+  function buildFloracionPorMes(inicio?: number, fin?: number) {
+    const result = Array(12).fill('Bajo')
+    if (!inicio || !fin) return result
+
+    if (inicio <= fin) {
+      for (let i = inicio; i <= fin; i++) {
+        result[i - 1] = 'Alto'
+      }
+    } else {
+      for (let i = inicio; i <= 12; i++) {
+        result[i - 1] = 'Alto'
+      }
+      for (let i = 1; i <= fin; i++) {
+        result[i - 1] = 'Alto'
+      }
+    }
+
+    return result
+  }
 
   if (userData?.rol !== 'apicultor') {
     return null
@@ -149,9 +171,23 @@ export default function MisPlantasPage() {
                     ) : null}
                     <h3 className="font-semibold">{planta.nombre}</h3>
                     <p className="text-sm text-muted-foreground italic">{planta.nombreCientifico}</p>
-                    <div className="flex gap-4 mt-2 text-xs">
+                    <div className="flex flex-wrap gap-1 mt-2 text-[10px]">
                       <span className="px-2 py-0.5 bg-muted rounded">{planta.tipo}</span>
-                      <span>Floración: {meses[planta.floracionInicio - 1]} - {meses[planta.floracionFin - 1]}</span>
+                      {planta.floracionPorMes?.map((nivel, index) => {
+                        const colorClass = nivel === 'Alto'
+                          ? 'bg-secondary text-secondary-foreground'
+                          : nivel === 'Medio'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-destructive text-destructive-foreground'
+
+                        return (
+                          <span key={index} className={`${colorClass} rounded-full px-2 py-0.5`}
+                            title={`${meses[index]}: ${nivel}`}
+                          >
+                            {meses[index]}
+                          </span>
+                        )
+                      })}
                     </div>
                     <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
                       <span>Néctar: {planta.nectar}</span>

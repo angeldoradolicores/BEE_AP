@@ -23,24 +23,53 @@ export default function CalendarioPage() {
 
   // Group plants by their flowering pattern
   const plantasOrdenadas = useMemo(() => {
-    const userPlantsMapped = userPlants
+    function buildFloracionPorMes(inicio?: number, fin?: number) {
+    const result = Array(12).fill('Bajo')
+    if (!inicio || !fin) return result
+
+    if (inicio <= fin) {
+      for (let i = inicio; i <= fin; i++) {
+        result[i - 1] = 'Alto'
+      }
+    } else {
+      for (let i = inicio; i <= 12; i++) {
+        result[i - 1] = 'Alto'
+      }
+      for (let i = 1; i <= fin; i++) {
+        result[i - 1] = 'Alto'
+      }
+    }
+
+    return result
+  }
+
+  const userPlantsMapped = userPlants
       .filter(p => p.id) // Filter out plants without id
-      .map(p => ({
-        id: p.id!,
-        nombreCientifico: p.nombre_cientifico,
-        nombreComun: p.nombre_comun,
-        familia: p.familia,
-        colorFlor: p.color_flor,
-        recompensa: (p.nectar === 'alto' && p.polen === 'alto' ? 'P/N' : p.nectar === 'alto' ? 'N' : 'P') as 'N' | 'P' | 'P/N',
-        estratificacion: p.tipo.charAt(0).toUpperCase() + p.tipo.slice(1) as 'Arvense' | 'Cultivo' | 'Arbusto' | 'Árbol',
-        frecuenciaVisita: p.frecuencia_visita as 'baja' | 'media' | 'alta',
-        mesInicio: p.floracion_inicio,
-        mesFin: p.floracion_fin,
-        nectar: p.nectar.charAt(0).toUpperCase() + p.nectar.slice(1) as 'Alto' | 'Medio' | 'Bajo',
-        polen: p.polen.charAt(0).toUpperCase() + p.polen.slice(1) as 'Alto' | 'Medio' | 'Bajo',
-        descripcion: p.descripcion || '',
-        imagenUrl: p.imagen_url
-      }))
+      .map(p => {
+        const floracionPorMes = Array.isArray(p.floracion_por_mes) && p.floracion_por_mes.length === 12
+          ? p.floracion_por_mes.map((nivel) => nivel.charAt(0).toUpperCase() + nivel.slice(1))
+          : buildFloracionPorMes(p.floracion_inicio, p.floracion_fin)
+
+        const mesInicio = floracionPorMes.findIndex((nivel) => nivel !== 'Bajo') + 1
+        const mesFin = floracionPorMes.length - [...floracionPorMes].reverse().findIndex((nivel) => nivel !== 'Bajo')
+
+        return {
+          id: p.id!,
+          nombreCientifico: p.nombre_cientifico,
+          nombreComun: p.nombre_comun,
+          familia: p.familia,
+          colorFlor: p.color_flor,
+          recompensa: (p.nectar === 'alto' && p.polen === 'alto' ? 'P/N' : p.nectar === 'alto' ? 'N' : 'P') as 'N' | 'P' | 'P/N',
+          estratificacion: p.tipo.charAt(0).toUpperCase() + p.tipo.slice(1) as 'Arvense' | 'Cultivo' | 'Arbusto' | 'Árbol',
+          frecuenciaVisita: p.frecuencia_visita as 'baja' | 'media' | 'alta',
+          mesInicio: mesInicio || 0,
+          mesFin: mesFin || 0,
+          nectar: p.nectar.charAt(0).toUpperCase() + p.nectar.slice(1) as 'Alto' | 'Medio' | 'Bajo',
+          polen: p.polen.charAt(0).toUpperCase() + p.polen.slice(1) as 'Alto' | 'Medio' | 'Bajo',
+          descripcion: p.descripcion || '',
+          imagenUrl: p.imagen_url
+        }
+      })
 
     const allPlants = [...plantasMeliferas, ...userPlantsMapped]
 

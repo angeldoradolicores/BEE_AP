@@ -48,8 +48,7 @@ export default function EditarPlantaPage() {
     familia: '',
     tipo: '',
     colorFlor: '',
-    floracionInicio: '',
-    floracionFin: '',
+    floracionPorMes: Array(12).fill('Bajo'),
     nectar: '',
     polen: '',
     frecuenciaVisita: '',
@@ -77,14 +76,35 @@ export default function EditarPlantaPage() {
         }
 
         const data = snapshot.data()
+        const defaultFloracionPorMes = Array(12).fill('Bajo')
+        const floracionPorMes = Array.isArray(data.floracion_por_mes) && data.floracion_por_mes.length === 12
+          ? data.floracion_por_mes.map((nivel: string) => nivel.charAt(0).toUpperCase() + nivel.slice(1))
+          : defaultFloracionPorMes
+
+        if (!Array.isArray(data.floracion_por_mes) && data.floracion_inicio && data.floracion_fin) {
+          const inicio = data.floracion_inicio as number
+          const fin = data.floracion_fin as number
+          if (inicio <= fin) {
+            for (let i = inicio; i <= fin; i++) {
+              floracionPorMes[i - 1] = 'Alto'
+            }
+          } else {
+            for (let i = inicio; i <= 12; i++) {
+              floracionPorMes[i - 1] = 'Alto'
+            }
+            for (let i = 1; i <= fin; i++) {
+              floracionPorMes[i - 1] = 'Alto'
+            }
+          }
+        }
+
         setFormData({
           nombre: data.nombre_comun || '',
           nombreCientifico: data.nombre_cientifico || '',
           familia: data.familia || '',
           tipo: data.tipo || '',
           colorFlor: data.color_flor || '',
-          floracionInicio: data.floracion_inicio?.toString() || '',
-          floracionFin: data.floracion_fin?.toString() || '',
+          floracionPorMes,
           nectar: data.nectar ? data.nectar.charAt(0).toUpperCase() + data.nectar.slice(1) : '',
           polen: data.polen ? data.polen.charAt(0).toUpperCase() + data.polen.slice(1) : '',
           frecuenciaVisita: data.frecuencia_visita ? data.frecuencia_visita.charAt(0).toUpperCase() + data.frecuencia_visita.slice(1) : '',
@@ -104,6 +124,14 @@ export default function EditarPlantaPage() {
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleFloracionMesChange = (index: number, value: string) => {
+    setFormData(prev => {
+      const floracionPorMes = [...prev.floracionPorMes]
+      floracionPorMes[index] = value
+      return { ...prev, floracionPorMes }
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,20 +156,30 @@ export default function EditarPlantaPage() {
         }
       }
       const docRef = doc(db, 'plantas_usuario', plantaId)
-      await updateDoc(docRef, {
+      const activeMonths = formData.floracionPorMes
+        .map((nivel, idx) => ({ nivel: nivel.toLowerCase(), idx }))
+        .filter(({ nivel }) => nivel !== 'bajo')
+
+      const dataToUpdate: any = {
         nombre_comun: formData.nombre,
         nombre_cientifico: formData.nombreCientifico,
         familia: formData.familia,
         tipo: formData.tipo.toLowerCase(),
         color_flor: formData.colorFlor,
-        floracion_inicio: parseInt(formData.floracionInicio),
-        floracion_fin: parseInt(formData.floracionFin),
+        floracion_por_mes: formData.floracionPorMes.map((nivel) => nivel.toLowerCase()),
         nectar: formData.nectar.toLowerCase(),
         polen: formData.polen.toLowerCase(),
         frecuencia_visita: formData.frecuenciaVisita.toLowerCase(),
         imagen_url: uploadedImageUrl || null,
         descripcion: formData.descripcion,
-      })
+      }
+
+      if (activeMonths.length > 0) {
+        dataToUpdate.floracion_inicio = activeMonths[0].idx + 1
+        dataToUpdate.floracion_fin = activeMonths[activeMonths.length - 1].idx + 1
+      }
+
+      await updateDoc(docRef, dataToUpdate)
       
       router.push('/dashboard/plantas')
     } catch (err) {
@@ -249,36 +287,34 @@ export default function EditarPlantaPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="floracionInicio">Inicio de floración *</Label>
-                <Select value={formData.floracionInicio} onValueChange={(v) => handleChange('floracionInicio', v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Mes de inicio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {meses.map((mes) => (
-                      <SelectItem key={mes.value} value={mes.value}>
-                        {mes.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="floracionFin">Fin de floración *</Label>
-                <Select value={formData.floracionFin} onValueChange={(v) => handleChange('floracionFin', v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Mes de fin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {meses.map((mes) => (
-                      <SelectItem key={mes.value} value={mes.value}>
-                        {mes.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="md:col-span-2 space-y-2">
+                <Label>Floración por mes *</Label>
+                <p className="text-sm text-muted-foreground">
+                  Selecciona el nivel de floración para cada mes.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {meses.map((mes, index) => (
+                    <div key={mes.value} className="space-y-2">
+                      <Label className="text-xs">{mes.label}</Label>
+                      <Select
+                        value={formData.floracionPorMes[index]}
+                        onValueChange={(v) => handleFloracionMesChange(index, v)}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Nivel" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {niveles.map((nivel) => (
+                            <SelectItem key={nivel} value={nivel}>
+                              {nivel}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">

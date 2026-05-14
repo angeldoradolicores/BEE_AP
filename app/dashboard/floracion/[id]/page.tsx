@@ -109,6 +109,9 @@ export default function FloracionDetallePage() {
 
   const mesInicio = planta.floracion_inicio || planta.mesInicio
   const mesFin = planta.floracion_fin || planta.mesFin
+  const floracionPorMes = Array.isArray(planta.floracion_por_mes) && planta.floracion_por_mes.length === 12
+    ? planta.floracion_por_mes
+    : buildFloracionPorMes(mesInicio, mesFin)
   const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
   const isUserPlant = planta.userId === user?.uid
 
@@ -239,42 +242,28 @@ export default function FloracionDetallePage() {
           <CardTitle>Período de Floración</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-1">Inicio</p>
-              <Badge variant="outline" className="text-base px-3 py-2">
-                {meses[mesInicio - 1]}
-              </Badge>
-            </div>
-            <div className="flex-1 h-1 mx-4 bg-gradient-to-r from-secondary to-primary rounded-full" />
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-1">Fin</p>
-              <Badge variant="outline" className="text-base px-3 py-2">
-                {meses[mesFin - 1]}
-              </Badge>
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Aquí se muestra el nivel de floración mes a mes.
+          </p>
 
-          {/* Mes por mes */}
-          <div className="grid grid-cols-12 gap-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {meses.map((mes, index) => {
-              let isInRange = false
-              if (mesInicio <= mesFin) {
-                isInRange = index + 1 >= mesInicio && index + 1 <= mesFin
-              } else {
-                isInRange = index + 1 >= mesInicio || index + 1 <= mesFin
-              }
-              
+              const nivel = floracionPorMes[index] || 'bajo'
+              const badgeClass = nivel === 'alto'
+                ? 'bg-secondary text-secondary-foreground'
+                : nivel === 'medio'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-destructive text-destructive-foreground'
+
               return (
                 <div
                   key={mes}
-                  className={`p-2 text-center text-xs font-semibold rounded ${
-                    isInRange
-                      ? 'bg-secondary text-secondary-foreground'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
+                  className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
                 >
-                  {mes}
+                  <span className="text-sm font-medium">{mes}</span>
+                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${badgeClass}`}>
+                    {nivel.charAt(0).toUpperCase() + nivel.slice(1)}
+                  </span>
                 </div>
               )
             })}
@@ -312,4 +301,24 @@ function getColorFromFlor(color: string): string {
     'Azul': '#3B82F6',
   }
   return colorMap[color] || '#9CA3AF'
+}
+
+function buildFloracionPorMes(inicio?: number, fin?: number) {
+  const result = Array(12).fill('bajo')
+  if (!inicio || !fin) return result
+
+  if (inicio <= fin) {
+    for (let i = inicio; i <= fin; i++) {
+      result[i - 1] = 'alto'
+    }
+  } else {
+    for (let i = inicio; i <= 12; i++) {
+      result[i - 1] = 'alto'
+    }
+    for (let i = 1; i <= fin; i++) {
+      result[i - 1] = 'alto'
+    }
+  }
+
+  return result
 }

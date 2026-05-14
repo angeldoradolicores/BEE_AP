@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
-import { plantasMeliferas, getDisponibilidadPorMes, ajustarPorClima } from '@/lib/plantas-data'
+import { plantasMeliferas, getDisponibilidadPorMes, ajustarPorClima, type PlantaMelifera } from '@/lib/plantas-data'
 import { useWeather, CIUDADES_NARINO } from '@/hooks/use-weather'
 import { useAuth } from '@/lib/auth-context'
 import { obtenerTodasLasPlantas, type PlantaUsuario } from '@/lib/firestore-service'
@@ -72,16 +72,24 @@ export default function FloracionPage() {
         frecuenciaVisita: p.frecuencia_visita as 'baja' | 'media' | 'alta',
         mesInicio: p.floracion_inicio,
         mesFin: p.floracion_fin,
+        floracionPorMes: p.floracion_por_mes,
         nectar: p.nectar.charAt(0).toUpperCase() + p.nectar.slice(1) as 'Alto' | 'Medio' | 'Bajo',
         polen: p.polen.charAt(0).toUpperCase() + p.polen.slice(1) as 'Alto' | 'Medio' | 'Bajo',
         descripcion: p.descripcion || '',
         imagenUrl: p.imagen_url
       }))
 
-    const allPlants = [...plantasMeliferas, ...userPlantsMapped]
+    const allPlants = [...plantasMeliferas, ...userPlantsMapped] as Array<PlantaMelifera & { floracionPorMes?: string[] }>
 
     return allPlants.map(planta => {
-      const disponibilidadBase = getDisponibilidadPorMes(planta, mesActual)
+      const disponibilidadBase = planta.floracionPorMes && planta.floracionPorMes.length === 12
+        ? planta.floracionPorMes[mesActual - 1] === 'alto'
+          ? 'alta'
+          : planta.floracionPorMes[mesActual - 1] === 'medio'
+          ? 'media'
+          : 'baja'
+        : getDisponibilidadPorMes(planta, mesActual)
+
       const disponibilidadAjustada = weather 
         ? ajustarPorClima(disponibilidadBase, weather.temperatura, weather.humedad, weather.condicion)
         : disponibilidadBase

@@ -55,8 +55,9 @@ export interface PlantaUsuario {
   familia: string
   tipo: 'arbol' | 'arbusto' | 'hierba' | 'cultivo'
   color_flor: string
-  floracion_inicio: number // mes 1-12
-  floracion_fin: number // mes 1-12
+  floracion_inicio?: number // mes 1-12
+  floracion_fin?: number // mes 1-12
+  floracion_por_mes?: ('alto' | 'medio' | 'bajo')[]
   nectar: 'alto' | 'medio' | 'bajo'
   polen: 'alto' | 'medio' | 'bajo'
   frecuencia_visita: 'alta' | 'media' | 'baja'
